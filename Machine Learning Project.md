@@ -1,0 +1,233 @@
+---
+title: "Machine Learning Coursera Project"
+author: "Karthik Viswanath"
+date: "Tuesday, February 10, 2015"
+output: html_document
+---
+# Introduction
+This project write-up is related to project work in Coursera course titled "Practical Machine Learning".  
+The main goal of the project is to predict the manner in which the test subjects did the exercise based on a number of parameters captured by activity monitors, as detailed out in the data set. 
+The data set and other project details can be found on the coursera page - https://class.coursera.org/predmachlearn-011/human_grading  
+
+As part of the project, we have to come up with the following  
+1. Model to predict activity type with details on analysis  
+2. Apply the model to predict activity type for 20 test cases provided  
+3. Calculate and state the accuracy and out of sample error rate  
+4. Submit the prediction for auto grading (Outside of this project write-up)  
+
+# Project Pre-Setup
+Load required libraries and read data into R.
+
+```r
+# Load required Libraries
+library(caret)
+library(randomForest)
+```
+
+```
+## randomForest 4.6-10
+## Type rfNews() to see new features/changes/bug fixes.
+```
+
+```r
+library(corrplot)
+
+# Read the training and testing data sets
+pml.training <- read.csv(file="pml-training.csv",na.strings=c("", "NA", "NULL","#DIV/0!"))
+pml.testing <- read.csv(file="pml-testing.csv",na.strings=c("", "NA", "NULL","#DIV/0!"))
+
+set.seed(1336)  # Setting seed for reproducibility
+```
+
+# Tidy Data Set
+Cleanup training and testing data sets before modeling  
+1. Remove variables not contributing to 'classe' - Exploratory data analysis, reading data set description   
+We see that the first 7 variables in the data set match this and can be safely removed  
+
+```r
+names(pml.training)[1:7]
+```
+
+```
+## [1] "X"                    "user_name"            "raw_timestamp_part_1"
+## [4] "raw_timestamp_part_2" "cvtd_timestamp"       "new_window"          
+## [7] "num_window"
+```
+
+```r
+pml.training <- pml.training[,-(1:7)]
+pml.testing <- pml.testing[,-(1:7)]
+```
+2. Remove those variables where more than 60% of data is NA. This will mess up the prediction as it will result in incorrect prediction.  
+Also, imputing will not work (rather, will not be correct) for so many missing values.
+We see that there are 100 variables with >=60% missing values. Removing them  
+
+```r
+pml.training <- pml.training[,colSums(is.na(pml.training))/nrow(pml.training)<0.60]
+pml.testing <- pml.testing[,colSums(is.na(pml.testing))/nrow(pml.testing)<0.60]
+```
+None of the remaining 53 variables have NAs. So no need to impute.  
+There are no near zero variance predictors as well.  
+
+```r
+nzvTrain <- nearZeroVar(pml.training); length(nzvTrain)
+```
+
+```
+## [1] 0
+```
+
+```r
+nzvTest <- nearZeroVar(pml.testing); length(nzvTest)
+```
+
+```
+## [1] 0
+```
+
+Partition 'pml.training' data into 'training' and 'testing' with 60% and 40% respectively
+
+```r
+inTrain <- createDataPartition(y=pml.training$classe, p=0.6, list=FALSE)
+training <- pml.training[inTrain,]
+testing <- pml.training[-inTrain,]
+dim(training)
+```
+
+```
+## [1] 11776    53
+```
+
+```r
+dim(testing)
+```
+
+```
+## [1] 7846   53
+```
+
+```r
+dim(training)[1]/dim(pml.training)[1]
+```
+
+```
+## [1] 0.6001
+```
+
+```r
+dim(testing)[1]/dim(pml.training)[1]
+```
+
+```
+## [1] 0.3999
+```
+
+```r
+# As we can see pml.training dataset is correctly partiotined into 60% training and 40% testing data sets.
+```
+
+# Data Modeling
+We will fit a predictive model using Random Forest as it automatically selects important covariates (So, I am not preprocessing with PCA to nullify the effect of Multicollinearity) and is robust to outliers.  
+Also, from the Correlation Matrix plot (Appendix) we can see that there is not much collinearity. Whatever is there will be taken care by the Random Forest algorithm in choosing the right combination of covariates.  
+
+## Model Creation with Cross Validation
+For cross validation, we will use 5-fold cross validation when applying "rf" algorithm.
+
+```r
+rfControl <- trainControl(method="cv",5)
+rfModel <- train(classe ~ ., data=training, method="rf", trControl=rfControl, ntree=250)
+```
+
+## Validate the model
+Lets now estimate the model on the validation data set
+
+```r
+rfPredict <- predict(rfModel,testing)
+confusionMatrix(testing$classe,rfPredict)
+```
+
+```
+## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction    A    B    C    D    E
+##          A 2230    0    0    0    2
+##          B   17 1497    3    1    0
+##          C    0    7 1360    1    0
+##          D    0    0   12 1271    3
+##          E    0    1    0    0 1441
+## 
+## Overall Statistics
+##                                         
+##                Accuracy : 0.994         
+##                  95% CI : (0.992, 0.996)
+##     No Information Rate : 0.286         
+##     P-Value [Acc > NIR] : <2e-16        
+##                                         
+##                   Kappa : 0.992         
+##  Mcnemar's Test P-Value : NA            
+## 
+## Statistics by Class:
+## 
+##                      Class: A Class: B Class: C Class: D Class: E
+## Sensitivity             0.992    0.995    0.989    0.998    0.997
+## Specificity             1.000    0.997    0.999    0.998    1.000
+## Pos Pred Value          0.999    0.986    0.994    0.988    0.999
+## Neg Pred Value          0.997    0.999    0.998    1.000    0.999
+## Prevalence              0.286    0.192    0.175    0.162    0.184
+## Detection Rate          0.284    0.191    0.173    0.162    0.184
+## Detection Prevalence    0.284    0.193    0.174    0.164    0.184
+## Balanced Accuracy       0.996    0.996    0.994    0.998    0.998
+```
+
+```r
+accuracy <- postResample(rfPredict,testing$classe)
+accuracy
+```
+
+```
+## Accuracy    Kappa 
+##   0.9940   0.9924
+```
+
+```r
+outOfSampleError <-  1 - as.numeric(accuracy[1])
+outOfSampleError
+```
+
+```
+## [1] 0.00599
+```
+The Accuracy of the model is 0.994 and the estimated out of sample error rate is 0.006 as calculated above.
+
+## Final Prediction
+Final prediction on Test Data Set ( 20 different test cases)  
+Now that our model is satisfactory with expected accuracy, we will apply it to the test data set downloaded from source..
+
+
+```r
+# Remove the problem_id column in test data set
+pml.testing$problem_id <-NULL
+finalResult <- predict(rfModel,pml.testing)
+finalResult
+```
+
+```
+##  [1] B A B A A E D B A A B C B A E E A B B B
+## Levels: A B C D E
+```
+As a conclusion, we can say that the model is able to provide good prediction of activity quality from activity monitors.
+
+# Appendix
+
+```r
+corrPlot <- cor(pml.training[,-53])
+corrplot(corrPlot, method="color")
+```
+
+![plot of chunk unnamed-chunk-9](figure/unnamed-chunk-9.png) 
+
+# References
+Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.
+
+Read more: http://groupware.les.inf.puc-rio.br/har#ixzz3RMZaUneZ
