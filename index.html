@@ -1,0 +1,239 @@
+<!doctype html>
+<!-- The Time Machine GitHub pages theme was designed and developed by Jon Rohan, on Feb 7, 2012. -->
+<!-- Follow him for fun. http://twitter.com/jonrohan. Tail his code on http://github.com/jonrohan -->
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+
+  <link rel="stylesheet" href="stylesheets/stylesheet.css" media="screen">
+  <link rel="stylesheet" href="stylesheets/pygment_trac.css">
+  <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+  <script type="text/javascript" src="javascripts/script.js"></script>
+
+  <title>Coursera Machine Learning  Project</title>
+  <meta name="description" content="Model Activity Quality from Activity Monitor Parameters">
+
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+
+</head>
+
+<body>
+
+  <div class="wrapper">
+    <header>
+      <h1 class="title">Coursera Machine Learning  Project</h1>
+    </header>
+    <div id="container">
+      <p class="tagline">Model Activity Quality from Activity Monitor Parameters</p>
+      <div id="main" role="main">
+        <div class="download-bar">
+        <div class="inner">
+          <a href="https://github.com/karthikrv82/Coursera_MP_Project/tarball/master" class="download-button tar"><span>Download</span></a>
+          <a href="https://github.com/karthikrv82/Coursera_MP_Project/zipball/master" class="download-button zip"><span>Download</span></a>
+          <a href="https://github.com/karthikrv82/Coursera_MP_Project" class="code">View Coursera Machine Learning  Project on GitHub</a>
+        </div>
+        <span class="blc"></span><span class="trc"></span>
+        </div>
+        <article class="markdown-body">
+          <p></p>Machine Learning Coursera Project
+
+
+
+<div id="header">
+<h1>
+<a id="machine-learning-coursera-project" class="anchor" href="#machine-learning-coursera-project" aria-hidden="true"><span class="octicon octicon-link"></span></a>Machine Learning Coursera Project</h1>
+<h4>
+<a id="karthik-viswanath" class="anchor" href="#karthik-viswanath" aria-hidden="true"><span class="octicon octicon-link"></span></a><em>Karthik Viswanath</em>
+</h4>
+<h4>
+<a id="tuesday-february-10-2015" class="anchor" href="#tuesday-february-10-2015" aria-hidden="true"><span class="octicon octicon-link"></span></a><em>Tuesday, February 10, 2015</em>
+</h4>
+</div>
+
+<div id="introduction">
+<h1>
+<a id="introduction" class="anchor" href="#introduction" aria-hidden="true"><span class="octicon octicon-link"></span></a>Introduction</h1>
+<p>This project write-up is related to project work in Coursera course titled “Practical Machine Learning”.<br>The main goal of the project is to predict the manner in which the test subjects did the exercise based on a number of parameters captured by activity monitors, as detailed out in the data set. The data set and other project details can be found on the coursera page - <a href="https://class.coursera.org/predmachlearn-011/human_grading">https://class.coursera.org/predmachlearn-011/human_grading</a></p>
+<p>As part of the project, we have to come up with the following<br>1. Model to predict activity type with details on analysis<br>2. Apply the model to predict activity type for 20 test cases provided<br>3. Calculate and state the accuracy and out of sample error rate<br>4. Submit the prediction for auto grading (Outside of this project write-up)</p>
+</div>
+
+<div id="project-pre-setup">
+<h1>
+<a id="project-pre-setup" class="anchor" href="#project-pre-setup" aria-hidden="true"><span class="octicon octicon-link"></span></a>Project Pre-Setup</h1>
+<p>Load required libraries and read data into R.</p>
+<pre><code># Load required Libraries
+library(caret)</code></pre>
+<pre><code>## Loading required package: lattice
+## Loading required package: ggplot2</code></pre>
+<pre><code>library(randomForest)</code></pre>
+<pre><code>## randomForest 4.6-10
+## Type rfNews() to see new features/changes/bug fixes.</code></pre>
+<pre><code>library(corrplot)
+
+# Read the training and testing data sets
+pml.training &lt;- read.csv(file="pml-training.csv",na.strings=c("", "NA", "NULL","#DIV/0!"))
+pml.testing &lt;- read.csv(file="pml-testing.csv",na.strings=c("", "NA", "NULL","#DIV/0!"))
+
+set.seed(1336)  # Setting seed for reproducibility</code></pre>
+</div>
+
+<div id="tidy-data-set">
+<h1>
+<a id="tidy-data-set" class="anchor" href="#tidy-data-set" aria-hidden="true"><span class="octicon octicon-link"></span></a>Tidy Data Set</h1>
+<p>Cleanup training and testing data sets before modeling<br>1. Remove variables not contributing to ‘classe’ - Exploratory data analysis, reading data set description<br>We see that the first 7 variables in the data set match this and can be safely removed</p>
+<pre><code>names(pml.training)[1:7]</code></pre>
+<pre><code>## [1] "X"                    "user_name"            "raw_timestamp_part_1"
+## [4] "raw_timestamp_part_2" "cvtd_timestamp"       "new_window"          
+## [7] "num_window"</code></pre>
+<pre><code>pml.training &lt;- pml.training[,-(1:7)]
+pml.testing &lt;- pml.testing[,-(1:7)]</code></pre>
+<ol start="2">
+<li>Remove those variables where more than 60% of data is NA. This will mess up the prediction as it will result in incorrect prediction.<br>Also, imputing will not work (rather, will not be correct) for so many missing values. We see that there are 100 variables with &gt;=60% missing values. Removing them</li>
+</ol>
+<pre><code>pml.training &lt;- pml.training[,colSums(is.na(pml.training))/nrow(pml.training)&lt;0.60]
+pml.testing &lt;- pml.testing[,colSums(is.na(pml.testing))/nrow(pml.testing)&lt;0.60]</code></pre>
+<p>None of the remaining 53 variables have NAs. So no need to impute.<br>There are no near zero variance predictors as well.</p>
+<pre><code>nzvTrain &lt;- nearZeroVar(pml.training); length(nzvTrain)</code></pre>
+<pre><code>## [1] 0</code></pre>
+<pre><code>nzvTest &lt;- nearZeroVar(pml.testing); length(nzvTest)</code></pre>
+<pre><code>## [1] 0</code></pre>
+<p>Partition ‘pml.training’ data into ‘training’ and ‘testing’ with 60% and 40% respectively</p>
+<pre><code>inTrain &lt;- createDataPartition(y=pml.training$classe, p=0.6, list=FALSE)
+training &lt;- pml.training[inTrain,]
+testing &lt;- pml.training[-inTrain,]
+dim(training)</code></pre>
+<pre><code>## [1] 11776    53</code></pre>
+<pre><code>dim(testing)</code></pre>
+<pre><code>## [1] 7846   53</code></pre>
+<pre><code>dim(training)[1]/dim(pml.training)[1]</code></pre>
+<pre><code>## [1] 0.6001</code></pre>
+<pre><code>dim(testing)[1]/dim(pml.training)[1]</code></pre>
+<pre><code>## [1] 0.3999</code></pre>
+<pre><code># As we can see pml.training dataset is correctly partiotined into 60% training and 40% testing data sets.</code></pre>
+</div>
+
+<div id="data-modeling">
+<h1>
+<a id="data-modeling" class="anchor" href="#data-modeling" aria-hidden="true"><span class="octicon octicon-link"></span></a>Data Modeling</h1>
+<p>We will fit a predictive model using Random Forest as it automatically selects important covariates (So, I am not preprocessing with PCA to nullify the effect of Multicollinearity) and is robust to outliers.<br>Also, from the Correlation Matrix plot (Appendix) we can see that there is not much collinearity. Whatever is there will be taken care by the Random Forest algorithm in choosing the right combination of covariates.</p>
+<div id="model-creation-with-cross-validation">
+<h2>
+<a id="model-creation-with-cross-validation" class="anchor" href="#model-creation-with-cross-validation" aria-hidden="true"><span class="octicon octicon-link"></span></a>Model Creation with Cross Validation</h2>
+<p>For cross validation, we will use 5-fold cross validation when applying “rf” algorithm.</p>
+<pre><code>rfControl &lt;- trainControl(method="cv",5)
+rfModel &lt;- train(classe ~ ., data=training, method="rf", trControl=rfControl, ntree=250)</code></pre>
+</div>
+
+<div id="validate-the-model">
+<h2>
+<a id="validate-the-model" class="anchor" href="#validate-the-model" aria-hidden="true"><span class="octicon octicon-link"></span></a>Validate the model</h2>
+<p>Lets now estimate the model on the validation data set</p>
+<pre><code>rfPredict &lt;- predict(rfModel,testing)
+confusionMatrix(testing$classe,rfPredict)</code></pre>
+<pre><code>## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction    A    B    C    D    E
+##          A 2230    0    0    0    2
+##          B   17 1497    3    1    0
+##          C    0    7 1360    1    0
+##          D    0    0   12 1271    3
+##          E    0    1    0    0 1441
+## 
+## Overall Statistics
+##                                         
+##                Accuracy : 0.994         
+##                  95% CI : (0.992, 0.996)
+##     No Information Rate : 0.286         
+##     P-Value [Acc &gt; NIR] : &lt;2e-16        
+##                                         
+##                   Kappa : 0.992         
+##  Mcnemar's Test P-Value : NA            
+## 
+## Statistics by Class:
+## 
+##                      Class: A Class: B Class: C Class: D Class: E
+## Sensitivity             0.992    0.995    0.989    0.998    0.997
+## Specificity             1.000    0.997    0.999    0.998    1.000
+## Pos Pred Value          0.999    0.986    0.994    0.988    0.999
+## Neg Pred Value          0.997    0.999    0.998    1.000    0.999
+## Prevalence              0.286    0.192    0.175    0.162    0.184
+## Detection Rate          0.284    0.191    0.173    0.162    0.184
+## Detection Prevalence    0.284    0.193    0.174    0.164    0.184
+## Balanced Accuracy       0.996    0.996    0.994    0.998    0.998</code></pre>
+<pre><code>accuracy &lt;- postResample(rfPredict,testing$classe)
+accuracy</code></pre>
+<pre><code>## Accuracy    Kappa 
+##   0.9940   0.9924</code></pre>
+<pre><code>outOfSampleError &lt;-  1 - as.numeric(accuracy[1])
+outOfSampleError</code></pre>
+<pre><code>## [1] 0.00599</code></pre>
+<p>The Accuracy of the model is 0.994 and the estimated out of sample error rate is 0.006 as calculated above.</p>
+</div>
+
+<div id="final-prediction">
+<h2>
+<a id="final-prediction" class="anchor" href="#final-prediction" aria-hidden="true"><span class="octicon octicon-link"></span></a>Final Prediction</h2>
+<p>Final prediction on Test Data Set ( 20 different test cases)<br>Now that our model is satisfactory with expected accuracy, we will apply it to the test data set downloaded from source..</p>
+<pre><code># Remove the problem_id column in test data set
+pml.testing$problem_id &lt;-NULL
+finalResult &lt;- predict(rfModel,pml.testing)
+finalResult</code></pre>
+<pre><code>##  [1] B A B A A E D B A A B C B A E E A B B B
+## Levels: A B C D E</code></pre>
+<p>As a conclusion, we can say that the model is able to provide good prediction of activity quality from activity monitors.</p>
+</div>
+
+<p></p>
+</div>
+
+<div id="appendix">
+<h1>
+<a id="appendix" class="anchor" href="#appendix" aria-hidden="true"><span class="octicon octicon-link"></span></a>Appendix</h1>
+<pre><code>corrPlot &lt;- cor(pml.training[,-53])
+corrplot(corrPlot, method="color")</code></pre>
+</div>
+
+<p>![Correlation Plot](https://raw.githubusercontent.com/karthikrv82/Coursera_MP_Project/gh-pages/figure/unnamed-chunk-9.png)</p>
+
+<div id="references">
+<h1>
+<a id="references" class="anchor" href="#references" aria-hidden="true"><span class="octicon octicon-link"></span></a>References</h1>
+<p>Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human ’13) . Stuttgart, Germany: ACM SIGCHI, 2013.</p>
+<p>Read more: <a href="http://groupware.les.inf.puc-rio.br/har#ixzz3RMZaUneZ">http://groupware.les.inf.puc-rio.br/har#ixzz3RMZaUneZ</a></p>
+</div>
+
+<p></p>
+
+
+
+
+
+
+
+<p>
+</p>
+        </article>
+      </div>
+    </div>
+    <footer>
+      <div class="owner">
+      <p><a href="https://github.com/karthikrv82" class="avatar"><img src="https://avatars2.githubusercontent.com/u/7779682?v=3&amp;s=60" width="48" height="48"></a> <a href="https://github.com/karthikrv82">karthikrv82</a> maintains <a href="https://github.com/karthikrv82/Coursera_MP_Project">Coursera Machine Learning  Project</a></p>
+
+
+      </div>
+      <div class="creds">
+        <small>This page generated using <a href="http://pages.github.com/">GitHub Pages</a><br>theme by <a href="https://twitter.com/jonrohan/">Jon Rohan</a></small>
+      </div>
+    </footer>
+  </div>
+  <div class="current-section">
+    <a href="#top">Scroll to top</a>
+    <a href="https://github.com/karthikrv82/Coursera_MP_Project/tarball/master" class="tar">tar</a><a href="https://github.com/karthikrv82/Coursera_MP_Project/zipball/master" class="zip">zip</a><a href="" class="code">source code</a>
+    <p class="name"></p>
+  </div>
+
+  
+</body>
+</html>
