@@ -1,12 +1,12 @@
-# Coursera_MP_Project
+# Coursera Practical Machine Learning Project
 Coursera Machine Learning Project Work Files  
 1. Machine Learning Project.Rmd  
 2. Machine Learning Project.md  
 3. Machine Learning Project.html  
 
 There are 2 branches in the github.  
-* Master : Contains the .Rmd, .md and .html files  
-* gh-pages : Contains the .html file  
+* Master : Contains the .Rmd, .md, .html file and other supporting files  
+* gh-pages : Contains the .html file and other supporting files  
 
 To View the Markdown file directly in Gitbug, click on the .md file. Github does not recognize the .Rmd file. It will display the raw .Rmd file ( does not evaluate commands ), but it will properly display the .md file with commands evaluated.  
 
