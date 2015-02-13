@@ -1,9 +1,5 @@
-# Coursera_MP_Project
-Coursera Machine Learning Project Work Files
-1. Machine Learning Project.Rmd
-2. Machine Learning Project.md
-3. Machine Learning Project.html
+# Coursera Machine Learning Project
+The gh-branch contains the html files and other required image files to display html directly in the browser.
 
-Github might not evaluate the output from .Rmd file. So, please use the above .md file to evaluate the project.
-
-If you prefer html, download the .html file to evaluate the project.
+Use the following link to access the html file directly on the browser.  
+http://karthikrv82.github.io/Coursera_MP_Project
